@@ -13,34 +13,85 @@
     rel="stylesheet"
     href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css"
   >
+  <!-- DataTables Buttons CSS (for column visibility) -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css"
+  >
+
+  <style>
+    .table-container {
+      overflow-x: auto;
+    }
+  </style>
 </head>
 <body class="bg-light">
   <div class="container my-4">
-    <h1 class="text-center mb-4">Fantasy Baseball Hitter Stats (2025)</h1>
+    <h1 class="text-center mb-4">Fantasy Baseball - Savant Stats (2025)</h1>
 
-    <div class="table-responsive">
+    <div class="table-container">
       <table id="hittersTable" class="table table-striped table-bordered">
         <thead class="table-dark">
           <tr>
-            <th>Name</th>
-            <th>Team</th>
-            <th>xwOBA</th>
+            <th>Player Name</th>
+            <th>Player ID</th>
+            <th>Year</th>
+            <th>AB</th>
+            <th>PA</th>
+            <th>K%</th>
+            <th>BB%</th>
+            <th>AVG</th>
+            <th>SLG%</th>
+            <th>OBP</th>
+            <th>RBI</th>
+            <th>Total Bases</th>
+            <th>SB</th>
+            <th>xBA</th>
             <th>xSLG</th>
-            <th>Avg Order vs RHP</th>
-            <th>Avg Order vs LHP</th>
-            <th>Platoon Flag</th>
+            <th>wOBA</th>
+            <th>xwOBA</th>
+            <th>xOBP</th>
+            <th>xBA Diff</th>
+            <th>xSLG Diff</th>
+            <th>wOBA Diff</th>
+            <th>Avg Swing Speed</th>
+            <th>Sweet Spot %</th>
+            <th>Solid Contact %</th>
+            <th>Hard Hit %</th>
+            <th>Avg Best Speed</th>
+            <th>Avg Hyper Speed</th>
           </tr>
         </thead>
         <tbody>
           {% for row in data %}
           <tr>
-            <td>{{ row.name }}</td>
-            <td>{{ row.team }}</td>
-            <td>{{ row.xwOBA }}</td>
-            <td>{{ row.xSLG }}</td>
-            <td>{{ row.avg_order_vs_rhp }}</td>
-            <td>{{ row.avg_order_vs_lhp }}</td>
-            <td>{{ row.platoon_flag }}</td>
+            <td>{{ row["last_name, first_name"] }}</td>
+            <td>{{ row.player_id }}</td>
+            <td>{{ row.year }}</td>
+            <td>{{ row.ab }}</td>
+            <td>{{ row.pa }}</td>
+            <td>{{ row.k_percent }}</td>
+            <td>{{ row.bb_percent }}</td>
+            <td>{{ row.batting_avg }}</td>
+            <td>{{ row.slg_percent }}</td>
+            <td>{{ row.on_base_percent }}</td>
+            <td>{{ row.b_rbi }}</td>
+            <td>{{ row.b_total_bases }}</td>
+            <td>{{ row.r_total_stolen_base }}</td>
+            <td>{{ row.xba }}</td>
+            <td>{{ row.xslg }}</td>
+            <td>{{ row.woba }}</td>
+            <td>{{ row.xwoba }}</td>
+            <td>{{ row.xobp }}</td>
+            <td>{{ row.xbadiff }}</td>
+            <td>{{ row.xslgdiff }}</td>
+            <td>{{ row.wobadiff }}</td>
+            <td>{{ row.avg_swing_speed }}</td>
+            <td>{{ row.sweet_spot_percent }}</td>
+            <td>{{ row.solidcontact_percent }}</td>
+            <td>{{ row.hard_hit_percent }}</td>
+            <td>{{ row.avg_best_speed }}</td>
+            <td>{{ row.avg_hyper_speed }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -59,11 +110,58 @@
   <script
     src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"
   ></script>
+  <!-- DataTables Buttons JS -->
+  <script
+    src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"
+  ></script>
+  <script
+    src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"
+  ></script>
+  <script
+    src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"
+  ></script>
 
   <script>
     $(document).ready(function() {
       $('#hittersTable').DataTable({
-        pageLength: 25
+        pageLength: 25,
+        dom: 'Bfrtip',
+        buttons: [
+          {
+            extend: 'colvis',
+            text: 'Select Columns',
+            className: 'btn btn-secondary'
+          }
+        ],
+        columns: [
+          { visible: true },  // Player Name
+          { visible: false },  // Player ID
+          { visible: false },  // Year
+          { visible: false },  // AB
+          { visible: true },  // PA
+          { visible: true },  // K%
+          { visible: true },  // BB%
+          { visible: false },  // AVG
+          { visible: true },  // SLG
+          { visible: false },  // OBP
+          { visible: true }, // RBI
+          { visible: false }, // Total Bases
+          { visible: false }, // SB
+          { visible: false },  // xBA
+          { visible: true },  // xSLG
+          { visible: true },  // wOBA
+          { visible: true },  // xwOBA
+          { visible: false }, // xOBP
+          { visible: false }, // xBA Diff
+          { visible: true }, // xSLG Diff
+          { visible: true }, // wOBA Diff
+          { visible: false }, // Avg Swing Speed
+          { visible: false }, // Sweet Spot %
+          { visible: false }, // Solid Contact %
+          { visible: false }, // Hard Hit %
+          { visible: false }, // Avg Best Speed
+          { visible: false }  // Avg Hyper Speed
+        ]
       });
     });
   </script>
