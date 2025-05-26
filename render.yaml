@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: fantasy-baseball
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    plan: free
+
+jobs:
+  - name: daily-etl
+    type: cron
+    schedule: "0 10 * * *"  # 10 AM UTC = 6 AM EST
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python etl.py
