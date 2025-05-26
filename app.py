@@ -8,12 +8,12 @@ def load_data():
     conn = sqlite3.connect("hitters_stats.db")
     df = pd.read_sql_query("SELECT * FROM hitters", conn)
     conn.close()
-    return df
+    return df.to_dict(orient='records')
 
 @app.route('/')
 def index():
-    df = load_data()
-    return render_template("index.html", tables=[df.to_html(classes='data')], titles=df.columns.values)
+    data = load_data()
+    return render_template("index.html", data=data)
 
 if __name__ == '__main__':
     app.run(debug=True)
