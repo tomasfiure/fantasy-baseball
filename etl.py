@@ -2,6 +2,9 @@ import pandas as pd
 import sqlite3
 import requests
 from io import StringIO
+from datetime import datetime, timedelta
+
+# ========== Savant Advanced Stats Fetching ==========
 
 def get_savant_expected_stats():
     """
@@ -28,26 +31,142 @@ def get_savant_expected_stats():
         return df
     else:
         print(f"❌ Failed to fetch Savant data. Status code: {response.status_code}")
-        return pd.DataFrame()  # Empty DF fallback
+        return pd.DataFrame()
 
-def save_to_sqlite(df, db_name='hitters_stats.db'):
+def save_savant_to_sqlite(df, db_name='hitters_stats.db'):
     """
     Saves a DataFrame to a SQLite DB (table: 'hitters').
     """
     conn = sqlite3.connect(db_name)
     df.to_sql('hitters', conn, if_exists='replace', index=False)
     conn.close()
-    print("✅ Data saved to SQLite DB.")
+    print("✅ Savant data saved to SQLite DB.")
+
+# ========== Daily Lineup ETL ==========
+
+def get_boxscore(game_pk):
+    url = f"https://statsapi.mlb.com/api/v1/game/{game_pk}/boxscore"
+    response = requests.get(url)
+    if response.ok:
+        return response.json()
+    else:
+        print(f"Error fetching boxscore for {game_pk}")
+        return {}
+
+def get_games_on_date(date_str):
+    url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={date_str}"
+    response = requests.get(url)
+    games = []
+    if response.ok:
+        data = response.json()
+        dates = data.get("dates", [])
+        for d in dates:
+            for g in d.get("games", []):
+                games.append({
+                    "gamePk": g["gamePk"],
+                    "gameDate": g["officialDate"]
+                })
+    return games
+
+def get_pitcher_hand(pitcher_id):
+    url = f"https://statsapi.mlb.com/api/v1/people/{pitcher_id}"
+    response = requests.get(url)
+    if response.ok:
+        data = response.json()
+        hand_code = data['people'][0]['pitchHand']['code']
+        return hand_code
+    else:
+        print(f"Error fetching pitcher data for ID {pitcher_id}")
+        return "Unknown"
+
+def extract_lineups_from_boxscore(game_pk, game_date):
+    box = get_boxscore(game_pk)
+    lineups = []
+
+    for team_side in ["home", "away"]:
+        team_abbr = box["teams"][team_side]["team"]["abbreviation"]
+        players_dict = box["teams"][team_side]["players"]
+        batters_list = box["teams"][team_side]["batters"]
+
+        opponent_side = "home" if team_side == "away" else "away"
+        opponent_pitchers = box["teams"][opponent_side]["pitchers"]
+        if not opponent_pitchers:
+            continue
+        starter_id = opponent_pitchers[0]
+        pitcher_hand = get_pitcher_hand(starter_id)
+
+        starters = []
+        for player_id in batters_list:
+            player_data = players_dict.get(f"ID{player_id}", {})
+            is_sub = player_data.get("gameStatus", {}).get("isSubstitute", True)
+            if not is_sub:
+                player_name = player_data.get("person", {}).get("fullName", "Unknown Player")
+                starters.append({
+                    "player_id": player_id,
+                    "player_name": player_name,
+                    "batting_order": len(starters) + 1
+                })
+            if len(starters) == 9:
+                break
+
+        for starter in starters:
+            lineup_entry = {
+                "game_pk": game_pk,
+                "game_date": game_date,
+                "player_id": starter["player_id"],
+                "player_name": starter["player_name"],
+                "team": team_abbr,
+                "batting_order": starter["batting_order"],
+                "pitcher_hand": pitcher_hand
+            }
+            lineups.append(lineup_entry)
+
+    return lineups
+
+def insert_lineups(lineups, db_name="lineups.db"):
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+    for entry in lineups:
+        c.execute("""
+            INSERT OR IGNORE INTO daily_lineups
+            (game_pk, game_date, player_id, player_name, team, batting_order, pitcher_hand)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            entry["game_pk"],
+            entry["game_date"],
+            entry["player_id"],
+            entry["player_name"],
+            entry["team"],
+            entry["batting_order"],
+            entry["pitcher_hand"]
+        ))
+    conn.commit()
+    conn.close()
+    print(f"✅ Inserted {len(lineups)} lineup entries (ignoring duplicates).")
+
+# ========== Main Daily ETL ==========
 
 if __name__ == '__main__':
-    # 1️⃣ Get expected stats from Savant
+    # 1️⃣ Fetch expected stats from Savant & save to DB
     savant_df = get_savant_expected_stats()
-
     if not savant_df.empty:
-        # 2️⃣ Process / clean data as needed
-        # For now, let's keep it raw — you can add name normalization or merge with other data later
+        save_savant_to_sqlite(savant_df)
 
-        # 3️⃣ Save to SQLite
-        save_to_sqlite(savant_df)
+    # 2️⃣ Fetch yesterday's lineups & append to DB
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    print(f"📅 Fetching lineups for yesterday: {yesterday}")
 
-    print("🎉 ETL pipeline complete.")
+    games = get_games_on_date(yesterday)
+    day_lineups = []
+    for game in games:
+        game_pk = game["gamePk"]
+        game_date = game["gameDate"]
+        lineup_entries = extract_lineups_from_boxscore(game_pk, game_date)
+        day_lineups.extend(lineup_entries)
+
+    if day_lineups:
+        insert_lineups(day_lineups)
+    else:
+        print("No games found for yesterday.")
+
+    print("🎉 Daily ETL pipeline complete.")
